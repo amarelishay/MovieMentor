@@ -1,0 +1,25 @@
+# Maven
+/target/
+*.log
+*.class
+*.jar
+*.war
+
+# IntelliJ
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Credentials
+application.properties
+application.yml
+.env
+# Ignore compiled classes and build output
+target/
+
+# Ignore sensitive config
+src/main/resources/application.properties
+src/main/resources/application.properties
