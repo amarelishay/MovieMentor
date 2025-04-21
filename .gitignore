@@ -1,25 +1,22 @@
-# Maven
-/target/
-*.log
 *.class
 *.jar
 *.war
-
-# IntelliJ
+*.ear
+target/
+build/
 .idea/
 *.iml
-
-# OS
+*.ipr
+*.iws
+out/
+.vscode/
 .DS_Store
 Thumbs.db
-
-# Credentials
-application.properties
-application.yml
-.env
-# Ignore compiled classes and build output
-target/
-
-# Ignore sensitive config
+*.log
+.mvn/
+.gradle/
+node_modules/
+*.env
 src/main/resources/application.properties
-src/main/resources/application.properties
+*.swp
+*.tmp
