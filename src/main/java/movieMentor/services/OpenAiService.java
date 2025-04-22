@@ -2,60 +2,65 @@ package movieMentor.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-
-
-import java.util.List;
+import org.springframework.web.client.RestTemplate;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class OpenAiService {
 
-    private final WebClient.Builder webClientBuilder;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${openai.api.key}")
     private String apiKey;
 
-    public List<String> fetchRecommendationsFromChatGPT(List<String> favoriteTitles, List<String> lastWatchedTitles) {
-        String prompt = buildPrompt(favoriteTitles, lastWatchedTitles);
+    public List<String> getRecommendations(List<String> favorites, List<String> history) {
+        String prompt = buildPrompt(favorites, history);
 
-        String response = webClientBuilder.build()
-                .post()
-                .uri("https://api.openai.com/v1/chat/completions")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(buildRequestBody(prompt))
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(apiKey);
 
-        return extractTitlesFromResponse(response);
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", "gpt-3.5-turbo");
+        body.put("messages", List.of(
+                Map.of("role", "system", "content", "You are a movie expert that suggests personalized movies."),
+                Map.of("role", "user", "content", prompt)
+        ));
+        body.put("temperature", 0.7);
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(
+                    "https://api.openai.com/v1/chat/completions",
+                    request,
+                    Map.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK) {
+                Map choices = ((List<Map>) response.getBody().get("choices")).get(0);
+                Map message = (Map) choices.get("message");
+                String content = (String) message.get("content");
+
+                return Arrays.stream(content.split("\n"))
+                        .map(line -> line.replaceAll("^[0-9]+\\.\\s*", ""))
+                        .filter(title -> !title.trim().isEmpty())
+                        .collect(Collectors.toList());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return Collections.emptyList();
     }
 
     private String buildPrompt(List<String> favorites, List<String> history) {
-        return "Based on the following favorite movies: " + String.join(", ", favorites) +
-                " and these recently watched movies: " + String.join(", ", history) +
-                ". Suggest 10 similar movies. Return only a list of movie names separated by commas.";
-    }
-
-    private String buildRequestBody(String prompt) {
-        return "{\n" +
-                "  \"model\": \"gpt-3.5-turbo\",\n" +
-                "  \"messages\": [\n" +
-                "    {\"role\": \"system\", \"content\": \"You are a helpful movie recommendation engine.\"},\n" +
-                "    {\"role\": \"user\", \"content\": \"" + prompt + "\"}\n" +
-                "  ],\n" +
-                "  \"temperature\": 0.7\n" +
-                "}";
-
-    }
-
-    private List<String> extractTitlesFromResponse(String response) {
-        // פשטות - תחפש את התוכן בין "content": "..." ותחלק לפי פסיקים
-        String content = response.split("\\\"content\\\": \\\"", 2)[1].split("\\\"", 2)[0];
-        return List.of(content.split(", "));
+        return "I liked the following movies: " + String.join(", ", favorites) +
+                ". I recently watched: " + String.join(", ", history) +
+                ". Please recommend me 15 movies that I might enjoy, only list the movie titles in bullet or numbered form.";
     }
 }

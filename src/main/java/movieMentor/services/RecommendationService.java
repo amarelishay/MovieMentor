@@ -1,3 +1,4 @@
+// RecommendationService.java
 package movieMentor.services;
 
 import lombok.RequiredArgsConstructor;
@@ -14,38 +15,37 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class RecommendationService {
-
+    private final TmdbService tmdbService;
     private final UserRepository userRepository;
     private final MovieRepository movieRepository;
-    private final OpenAiService openAiService; // השירות שיטפל בתקשורת עם ChatGPT
+    private final OpenAiService openAiService;
+    public void generateRecommendations(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
 
-    public List<Movie> generateRecommendations(String username) {
-        User user = userRepository.findByUsernameOrEmail(username,username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        // שמות סרטים מהמועדפים
+        List<String> favorites = user.getFavoriteMovies().stream()
+                .map(Movie::getTitle)
+                .collect(Collectors.toList());
 
-        // נשלוף את 30 הסרטים האחרונים (או פחות אם אין)
-        List<String> lastWatchedTitles = user.getWatchHistory().stream()
+        // 30 הסרטים האחרונים מתוך ההיסטוריה
+        List<String> history = user.getWatchHistory().stream()
                 .skip(Math.max(0, user.getWatchHistory().size() - 30))
                 .map(Movie::getTitle)
                 .collect(Collectors.toList());
 
-        List<String> favoriteTitles = user.getFavoriteMovies().stream()
-                .map(Movie::getTitle)
-                .collect(Collectors.toList());
-
-        // קריאה ל־ChatGPT דרך השירות החיצוני
-        List<String> suggestedTitles = openAiService.fetchRecommendationsFromChatGPT(favoriteTitles, lastWatchedTitles);
-
-        // נריץ התאמה מול מסד הנתונים ונעדכן את המשתמש
-        List<Movie> recommended = new ArrayList<>();
-        for (String title : suggestedTitles) {
-            movieRepository.findByTitle(title).ifPresent(recommended::add);
-
+        // שליחת הנתונים ל־ChatGPT וקבלת שמות סרטים מוצעים
+        List<String> recommendedTitles = openAiService.getRecommendations(favorites, history);
+        user.getRecommendedMovies().clear();
+        List<Movie> movies=new ArrayList<>();
+        for (String movieName : recommendedTitles){
+            movies.add(tmdbService.searchMovies(movieName).get(0));
         }
-
-        user.setRecommendedMovies(recommended);
+        user.setRecommendedMovies(movies);
+        System.out.println(user+movies.toString());
         userRepository.save(user);
-        System.out.println("recommended movies updated :"+recommended.toString());
-        return recommended;
     }
+
+
+
 }

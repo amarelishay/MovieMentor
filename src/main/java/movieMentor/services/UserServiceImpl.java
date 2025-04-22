@@ -5,15 +5,18 @@ import movieMentor.beans.Movie;
 import movieMentor.beans.User;
 import movieMentor.repository.MovieRepository;
 import movieMentor.repository.UserRepository;
+import org.hibernate.validator.internal.util.stereotypes.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-@Service
 @RequiredArgsConstructor
+@Service
 public class UserServiceImpl implements UserService {
 
+    @Lazy
     private final RecommendationService recommendationService;
+
     private final UserRepository userRepository;
     private final MovieRepository movieRepository;
     private final TmdbService tmdbService;
@@ -40,7 +43,7 @@ public class UserServiceImpl implements UserService {
         if (added) {
             userRepository.save(user);
             // אם נרצה שהוספה לצפייה תוביל לעדכון המלצות, אפשר להוסיף תנאי כאן
-            if (user.getWatchHistory().size() % 3 == 0) {
+            if (user.getWatchHistory().size() % 5 == 0) {
                 recommendationService.generateRecommendations(username);
             }
         }
