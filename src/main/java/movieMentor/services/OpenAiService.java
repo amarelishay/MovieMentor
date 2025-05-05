@@ -1,6 +1,8 @@
 package movieMentor.services;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -13,12 +15,14 @@ import java.util.stream.Collectors;
 public class OpenAiService {
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private static final Logger logger = LoggerFactory.getLogger(OpenAiService.class);
 
     @Value("${openai.api.key}")
     private String apiKey;
 
     public List<String> getRecommendations(List<String> favorites, List<String> history) {
         String prompt = buildPrompt(favorites, history);
+        logger.info("Generating recommendations with prompt: {}", prompt);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -46,13 +50,18 @@ public class OpenAiService {
                 Map message = (Map) choices.get("message");
                 String content = (String) message.get("content");
 
-                return Arrays.stream(content.split("\n"))
+                List<String> recommendations = Arrays.stream(content.split("\\n"))
                         .map(line -> line.replaceAll("^[0-9]+\\.\\s*", ""))
                         .filter(title -> !title.trim().isEmpty())
                         .collect(Collectors.toList());
+
+                logger.info("Generated recommendations: {}", recommendations);
+                return recommendations;
+            } else {
+                logger.error("Failed to get recommendations, status code: {}", response.getStatusCode());
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error while generating recommendations", e);
         }
 
         return Collections.emptyList();
@@ -61,6 +70,6 @@ public class OpenAiService {
     private String buildPrompt(List<String> favorites, List<String> history) {
         return "I liked the following movies: " + String.join(", ", favorites) +
                 ". I recently watched: " + String.join(", ", history) +
-                ". Please recommend me 15 movies that I might enjoy, only list the movie titles in bullet or numbered form.";
+                ". Please recommend me 15 movies that I might enjoy (if there are more movies from the the serice give it some priority ), only list the movie titles (Be as precise as possible with the name of the film and don't write things like The Lord of the Rings Trilogy. The goal is to write each film separately.) in bullet or numbered form.";
     }
 }

@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import movieMentor.beans.User;
 import movieMentor.repository.UserRepository;
 import movieMentor.services.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -18,11 +20,14 @@ public class UserInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final UserService userService;
 
+    private static final Logger logger = LoggerFactory.getLogger(UserInitializer.class);
+
+
     @Override
     public void run(String... args) {
         final String username = "Elishayamar";
         if (userRepository.findByUsername(username).isPresent()) {
-            System.out.println("🟡 המשתמש כבר קיים: " + username);
+            logger.info("User already exists: {}", username);
             return;
         }
 
@@ -35,24 +40,24 @@ public class UserInitializer implements CommandLineRunner {
                 .build();
 
         userRepository.save(user);
-        System.out.println("✅ נוצר משתמש חדש: " + username);
+        logger.info("Created new user: {}", username);
 
         // סרטים אהובים
-        Arrays.asList("Inception", "Interstellar", "The Dark Knight").forEach(title ->
+        Arrays.asList("harry potter", "spongebob", "The Dark Knight","מכתוב","המשגיחים").forEach(title ->
                 safe(() -> userService.addFavoriteMovie(username, title)));
 
         // היסטוריית צפייה
-        Arrays.asList("The Matrix", "Avatar", "Tenet").forEach(title ->
+        Arrays.asList("The Matrix", "Avatar", "Tenet","The LEGO Batman Movie","The LEGO Ninjago Movie","לשחרר את שולי","תמונת הניצחון","חגיגה בסנוקר","אבא גנוב","שושנה").forEach(title ->
                 safe(() -> userService.addToWatchHistory(username, title)));
 
-        System.out.println("🎥 הוזנו סרטים אהובים והיסטוריית צפייה למשתמש " + username);
+        logger.info("Initialized favorite movies and watch history for user: {}", username);
     }
 
     private void safe(Runnable action) {
         try {
             action.run();
         } catch (Exception e) {
-            System.err.println("⚠️ שגיאה בעת הוספה: " + e.getMessage());
+            logger.error("Error during initialization: {}", e.getMessage(), e);
         }
     }
 }

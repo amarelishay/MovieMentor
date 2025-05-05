@@ -3,87 +3,110 @@ package movieMentor.services;
 import lombok.RequiredArgsConstructor;
 import movieMentor.beans.Movie;
 import movieMentor.beans.User;
-import movieMentor.repository.MovieRepository;
 import movieMentor.repository.UserRepository;
-import org.hibernate.validator.internal.util.stereotypes.Lazy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 import java.util.List;
 
-@RequiredArgsConstructor
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    @Lazy
+    private final UserRepository userRepository;
+    private final TmdbService tmdbService;
     private final RecommendationService recommendationService;
 
-    private final UserRepository userRepository;
-    private final MovieRepository movieRepository;
-    private final TmdbService tmdbService;
-    private final MovieService movieService;
+    private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
 
     @Override
+    @Transactional
+    @CacheEvict(value = "userRecommendations", key = "#username")
+
     public void addFavoriteMovie(String username, String movieTitle) {
         User user = fetchUser(username);
-        Movie movie = movieService.getOrCreateMovie(movieTitle);
-
+        Movie movie = tmdbService.getOrCreateMovie(movieTitle);
         boolean added = user.getFavoriteMovies().add(movie);
+
         if (added) {
-            userRepository.save(user); // רק אם נוספה חדשה
-            recommendationService.generateRecommendations(username);
+            logger.info("✅ Added movie '{}' to favorites for user '{}'", movieTitle, username);
+            updateRecommendations(user);
         }
     }
 
     @Override
+    @Transactional
+    @CacheEvict(value = "userRecommendations", key = "#username")
+
+    public void removeFavoriteMovie(String username, Long movieId) {
+        User user = fetchUser(username);
+        boolean removed = user.getFavoriteMovies().removeIf(m -> m.getId().equals(movieId));
+
+        if (removed) {
+            logger.info("🗑️ Removed movie ID {} from favorites for user '{}'", movieId, username);
+            updateRecommendations(user);
+        }
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = "userRecommendations", key = "#username")
     public void addToWatchHistory(String username, String movieTitle) {
         User user = fetchUser(username);
-        Movie movie = movieService.getOrCreateMovie(movieTitle);
-
+        Movie movie = tmdbService.getOrCreateMovie(movieTitle);
         boolean added = user.getWatchHistory().add(movie);
+
         if (added) {
-            userRepository.save(user);
-            // אם נרצה שהוספה לצפייה תוביל לעדכון המלצות, אפשר להוסיף תנאי כאן
+            logger.info("🎬 Added '{}' to watch history of '{}'", movieTitle, username);
             if (user.getWatchHistory().size() % 5 == 0) {
-                recommendationService.generateRecommendations(username);
+                logger.info("📊 Triggering recommendation update — history count divisible by 5");
+                updateRecommendations(user);
             }
         }
     }
-
-    @Override
-    public void setRecommendedMovies(String username, List<String> recommendedTitles) {
-        User user = fetchUser(username);
-        user.getRecommendedMovies().clear();
-
-        recommendedTitles.stream()
-                .limit(15)
-                .map(this::safeGetMovie)
-                .filter(movie -> movie != null)
-                .forEach(user.getRecommendedMovies()::add);
-
-        userRepository.save(user);
-    }
-
+    @Cacheable(value = "userRecommendations", key = "#username")
     @Override
     public List<Movie> getRecommendations(String username) {
         return fetchUser(username).getRecommendedMovies();
     }
-
-    // ----- עזר -----
-
-    private User fetchUser(String username) {
-        return userRepository.findByUsernameOrEmail(username, username) // מאפשר חיפוש גם לפי אימייל
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+    @Cacheable(value = "userFavorites", key = "#username")
+    @Override
+    public List<Movie> getFavorites(String username) {
+        return fetchUser(username).getFavoriteMovies();
     }
 
+    @Override
+    public List<Movie> getHistory(String username) {
+        return fetchUser(username).getWatchHistory();
+    }
 
+    @Override
+    @Transactional
+    @CacheEvict(value = "userRecommendations", key = "#username")
+    public void setRecommendedMovies(String username, List<String> recommendedTitles) {
+        User user = fetchUser(username);
+        List<Movie> updated = tmdbService.updateMovieListWithDifferences(user.getRecommendedMovies(), recommendedTitles);
+        user.setRecommendedMovies(updated);
+        userRepository.saveAndFlush(user);
+        logger.info("🛠️ Manually updated recommended movies for '{}'", username);
+    }
 
+    @Override
+    @Transactional
+    @CacheEvict(value = "userRecommendations", key = "#username")
+    public void updateRecommendations(User user) {
+        List<String> newTitles = recommendationService.generateRecommendations(user);
+        List<Movie> updated = tmdbService.updateMovieListWithDifferences(user.getRecommendedMovies(), newTitles);
+        user.setRecommendedMovies(updated);
+        userRepository.saveAndFlush(user);
+        logger.info("🔁 Automatically updated recommendations for '{}'", user.getUsername());
+    }
 
-    private Movie safeGetMovie(String title) {
-        try {
-            return movieService.getOrCreateMovie(title);
-        } catch (Exception e) {
-            System.err.println("⚠️ שגיאה בשליפת הסרט: " + title);
-            return null;
-        }
+    private User fetchUser(String usernameOrEmail) {
+        return userRepository.findByUsernameOrEmail(usernameOrEmail, usernameOrEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + usernameOrEmail));
     }
 }

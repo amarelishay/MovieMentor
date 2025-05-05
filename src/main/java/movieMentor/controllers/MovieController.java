@@ -46,7 +46,11 @@ public class MovieController {
     public ResponseEntity<List<Movie>> getNowPlaying() {
         return ResponseEntity.ok(tmdbService.getNowPlayingMovies());
     }
-
+    @ApiOperation(value = "Get uppcomming movies from TMDB")
+    @GetMapping("/upcoming")
+    public ResponseEntity<List<Movie>> getUpcoming() {
+        return ResponseEntity.ok(tmdbService.getUpComingMovies());
+    }
     @ApiOperation(value = "Get top-rated movies from TMDB")
     @GetMapping("/top-rated")
     public ResponseEntity<List<Movie>> getTopRated() {

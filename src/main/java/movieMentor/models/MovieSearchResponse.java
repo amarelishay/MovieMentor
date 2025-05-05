@@ -2,6 +2,8 @@ package movieMentor.models;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import movieMentor.beans.Actor;
+
 import java.util.List;
 
 @Data

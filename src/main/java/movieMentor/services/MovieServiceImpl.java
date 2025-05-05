@@ -1,54 +1,61 @@
+// Written by Elishay Amar
 package movieMentor.services;
-
 
 import lombok.RequiredArgsConstructor;
 import movieMentor.beans.Movie;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 import movieMentor.repository.MovieRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Implementation of MovieService interface.
+ * Handles business logic related to movies.
+ */
 @RequiredArgsConstructor
 @Service
 public class MovieServiceImpl implements MovieService {
 
-    private final TmdbService tmdbService;
+    private final MovieRepository movieRepository;
+    private static final Logger logger = LoggerFactory.getLogger(MovieServiceImpl.class);
 
-    @Autowired
-    private MovieRepository movieRepository;
-
-
-
+    @Cacheable("allMovies")
     @Override
     public List<Movie> getAllMovies() {
+        logger.info("Fetching all movies from database");
         return movieRepository.findAll();
     }
-
+    @Cacheable(value = "movies", key = "#id")
     @Override
     public Movie getMovieById(Long id) {
+        logger.info("Fetching movie by ID: {}", id);
         return movieRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Movie not found with id: " + id));
-
+                .orElseThrow(() -> {
+                    logger.error("Movie not found with ID: {}", id);
+                    return new RuntimeException("Movie not found with ID: " + id);
+                });
     }
 
     @Override
+    @CacheEvict(value = "allMovies", allEntries = true)
+    @CachePut(value = "movies", key = "#result.id")
     public Movie addMovie(Movie movie) {
-        movieRepository.save(movie);
-        return movie;
-    }
-    public Movie getOrCreateMovie(String title) {
-        return tmdbService.searchMovies(title).stream()
-                .findFirst()
-                .map(movie ->
-                        movieRepository.findByTitle(movie.getTitle())
-                                .orElseGet(() -> addMovie(movie))
-                )
-                .orElseThrow(() -> new RuntimeException("Movie not found: " + title));
+        logger.info("Adding a new movie: {}", movie.getTitle());
+        Movie savedMovie = movieRepository.save(movie);
+        logger.info("Movie added successfully with ID: {}", savedMovie.getId());
+        return savedMovie;
     }
 
     @Override
+    @CacheEvict(value = "movies", key = "#id")
     public void deleteMovie(Long id) {
+        logger.info("Deleting movie with ID: {}", id);
         movieRepository.deleteById(id);
+        logger.info("Movie deleted successfully with ID: {}", id);
     }
 }

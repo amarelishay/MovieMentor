@@ -22,7 +22,8 @@ public interface MovieRepository extends JpaRepository<Movie, Long> {
     // מתודה למציאת סרטים עם פופולריות גבוהה יותר מערך מסוים
     List<Movie> findByPopularityGreaterThan(Double popularityThreshold);
 
-    Optional<Movie> findByTitle(String title);
+//    Optional<Movie> findByTitle(String title);
+    List<Movie> findAllByTitle(String title);
 
     // מתודה למציאת סרט לפי ID (קיים אוטומטית מ־JpaRepository, אבל תזכורת)
     // Optional<Movie> findById(Long id);

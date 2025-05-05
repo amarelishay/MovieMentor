@@ -1,8 +1,6 @@
 package movieMentor.beans;
 
 import lombok.*;
-import movieMentor.beans.Movie;
-
 import javax.persistence.*;
 import javax.validation.constraints.Email;
 import java.time.LocalDate;
@@ -22,47 +20,39 @@ public class User {
     private Long id;
 
     private String name;
-    @Column(unique = true)
+
+    @Column(unique = true, length = 191)
     @Email
-    private  String email;
-    @Column(unique = true)
+    private String email;
+
+    @Column(unique = true, length = 191)
     private String username;
-    private  String password;
+
+    private String password;
     private LocalDate birthDate;
 
-    // סרטים שהמשתמש אהב
-
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_favorite_movies",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "movie_id")
     )
-    @ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<Movie> favoriteMovies = new ArrayList<>();
 
-
-    // היסטוריית צפייה
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_watch_history",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "movie_id")
     )
-    @ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<Movie> watchHistory = new ArrayList<>();
-    // המלצות – עד 15 סרטים, עם סדר
-    @ManyToMany(cascade = {CascadeType.MERGE, CascadeType.PERSIST})
+
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_recommendations",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "movie_id")
     )
     @OrderColumn(name = "recommendation_order")
-    private List<Movie> recommendedMovies;
-
-    public User(String name, String email, String password, LocalDate birthDate) {
-        this.name = name;
-        this.email = email;
-        this.password = password;
-        this.birthDate = birthDate;
-    }
+    private List<Movie> recommendedMovies = new ArrayList<>();
 }
