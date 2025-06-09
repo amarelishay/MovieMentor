@@ -54,8 +54,6 @@ public class OpenAiService {
                         .map(line -> line.replaceAll("^[0-9]+\\.\\s*", ""))
                         .filter(title -> !title.trim().isEmpty())
                         .collect(Collectors.toList());
-
-                logger.info("Generated recommendations: {}", recommendations);
                 return recommendations;
             } else {
                 logger.error("Failed to get recommendations, status code: {}", response.getStatusCode());
@@ -70,6 +68,6 @@ public class OpenAiService {
     private String buildPrompt(List<String> favorites, List<String> history) {
         return "I liked the following movies: " + String.join(", ", favorites) +
                 ". I recently watched: " + String.join(", ", history) +
-                ". Please recommend me 15 movies that I might enjoy (if there are more movies from the the serice give it some priority ), only list the movie titles (Be as precise as possible with the name of the film and don't write things like The Lord of the Rings Trilogy. The goal is to write each film separately.) in bullet or numbered form.";
+                ". Please recommend me 15 movies that I might enjoy (if there are more movies from the  serice give it some priority ), only list the original movie titles (Be as precise as possible with the name of the film and don't write things like The Lord of the Rings Trilogy or fans movie. The goal is to write each film separately.) in bullet or numbered form.";
     }
 }

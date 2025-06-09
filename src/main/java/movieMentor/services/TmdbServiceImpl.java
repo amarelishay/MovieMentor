@@ -3,21 +3,24 @@ package movieMentor.services;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import movieMentor.beans.Actor;
+import movieMentor.beans.Genre;
 import movieMentor.beans.Movie;
+import movieMentor.enums.GenreEnum;
 import movieMentor.models.MovieImage;
 import movieMentor.models.MovieSearchResponse;
 import movieMentor.models.TmdbMovie;
 import movieMentor.repository.ActorRepository;
+import movieMentor.repository.GenreRepository;
 import movieMentor.repository.MovieRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriUtils;
 
-import org.springframework.cache.annotation.Cacheable;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
@@ -26,19 +29,17 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class TmdbServiceImpl implements TmdbService {
-
+    private static final Logger logger = LoggerFactory.getLogger(TmdbServiceImpl.class);
+    private final GenreRepository genreRepository;
     private final RestTemplate restTemplate = new RestTemplate();
     private final MovieRepository movieRepository;
     private final ActorRepository actorRepository;
-
     @Value("${tmdb.api.token}")
     private String apiToken;
-
     @Value("${tmdb.api.base-url}")
     private String apiBaseUrl;
-
-    private static final Logger logger = LoggerFactory.getLogger(TmdbServiceImpl.class);
-
+    private final EmbeddingStorageService embeddingStorageService;
+    private final EmbeddingService embeddingService;
     @Override
     public List<Movie> searchMovies(String query) {
         String url = apiBaseUrl + "/search/movie?page=1&query=" + UriUtils.encode(query, StandardCharsets.UTF_8);
@@ -63,19 +64,21 @@ public class TmdbServiceImpl implements TmdbService {
     @Override
     public List<Movie> getNowPlayingMovies() {
         String url = apiBaseUrl + "/movie/now_playing?language=en-US&page=1&region=IL";
-        return fetchMoviesFromTmdb(url);
+        return fetchMovieListFromTmdbJson(url);
+
     }
+
     @Cacheable(value = "upComing")
     @Override
     public List<Movie> getUpComingMovies() {
         String url = apiBaseUrl + "/movie/upcoming?region=IL";
-        return fetchMoviesFromTmdb(url);
+        return fetchMovieListFromTmdbJson(url);
     }
-    @Cacheable(value = "topRated")
+
     @Override
     public List<Movie> getTopRatedMovies() {
         String url = apiBaseUrl + "/movie/top_rated?language=en-US&page=1";
-        return fetchMoviesFromTmdb(url);
+        return fetchMovieListFromTmdbJson(url);
     }
 
     @Override
@@ -200,6 +203,29 @@ public class TmdbServiceImpl implements TmdbService {
         return Collections.emptyList();
     }
 
+    @Override
+    public Set<Genre> resolveGenres(List<Integer> genreIds) {
+        Set<Genre> genres = new HashSet<>();
+        for (Integer generId : genreIds) {
+            Genre genre = new Genre((generId.longValue()), GenreEnum.fromId(generId));
+            genres.add(genre);
+            if (!genreRepository.existsById(generId.longValue())) {
+                genreRepository.saveAndFlush(genre);
+            }
+        }
+        return genres;
+    }
+
+    @Cacheable(value = "byGenre", key = "#genreId + '-' + #page")
+    @Override
+    public List<Movie> getMoviesByGenre(int genreId, int page) {
+        String url = apiBaseUrl +
+                "/discover/movie?language=en-US&with_genres=" + genreId +
+                "&sort_by=popularity.desc&page=" + page;
+
+        return fetchMovieListFromTmdbJson(url);
+    }
+
     // ------- Private Helpers -------
 
     private List<Movie> fetchMoviesFromTmdb(String url) {
@@ -207,9 +233,9 @@ public class TmdbServiceImpl implements TmdbService {
             ResponseEntity<MovieSearchResponse> response = restTemplate.exchange(url, HttpMethod.GET, createRequestEntity(), MovieSearchResponse.class);
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 List<Movie> movies = new ArrayList<>();
-                TmdbMovie tmdbMovie=response.getBody().getResults().get(0);
+                TmdbMovie tmdbMovie = response.getBody().getResults().get(0);
                 Movie movie = movieRepository.findById(tmdbMovie.getId())
-                           .orElseGet(() -> buildMovieFromTmdb(tmdbMovie));
+                        .orElseGet(() -> buildMovieFromTmdb(tmdbMovie));
                 movies.add(movie);
                 return movies;
             }
@@ -218,8 +244,21 @@ public class TmdbServiceImpl implements TmdbService {
         }
         return Collections.emptyList();
     }
+    private List<Movie> fetchMovieListFromTmdbJson(String url) {
+        ResponseEntity<MovieSearchResponse> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                createRequestEntity(),
+                MovieSearchResponse.class
+        );
 
-//    private Movie saveMovieWithActors(Movie movie) {
+        return response.getBody().getResults().stream()
+                .map(this::buildMovieFromTmdb)
+                .collect(Collectors.toList());
+    }
+
+
+    //    private Movie saveMovieWithActors(Movie movie) {
 //        Movie managedMovie = movieRepository.findById(movie.getId())
 //                .orElseGet(() -> movieRepository.saveAndFlush(movie));
 //
@@ -227,6 +266,25 @@ public class TmdbServiceImpl implements TmdbService {
 //        managedMovie.setActors(managedActors);
 //        return movieRepository.saveAndFlush(managedMovie);
 //    }
+public List<Movie> prepareCandidateMovies() {
+    List<Movie> candidates = new ArrayList<>();
+    candidates.addAll(getTopRatedMovies());
+    candidates.addAll(getNowPlayingMovies());
+
+    for (Movie movie : candidates) {
+        Long id = movie.getId();
+        if (!embeddingStorageService.hasEmbedding(id)) {
+            String overview = movie.getOverview();
+            if (overview != null && !overview.isBlank()) {
+                float[] vector = embeddingService.getEmbedding(overview);
+                embeddingStorageService.addEmbedding(id, vector);
+                logger.info("🧠 Embedded candidate movie '{}'", movie.getTitle());
+            }
+        }
+    }
+
+    return candidates;
+}
 
     private Movie buildMovieFromTmdb(TmdbMovie tmdbMovie) {
         return Movie.builder()
@@ -242,6 +300,7 @@ public class TmdbServiceImpl implements TmdbService {
                 .trailerUrl(fetchTrailerUrl(tmdbMovie.getId()))
                 .imageUrls(fetchImagesForMovie(tmdbMovie.getId()))
                 .actors(getActorsForMovie(tmdbMovie.getId()))
+                .genres(resolveGenres(tmdbMovie.getGenreIds()))
                 .build();
     }
 
