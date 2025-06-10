@@ -38,6 +38,7 @@ public class UserServiceImpl implements UserService {
         if (added) {
             logger.info("✅ Added movie '{}' to favorites for user '{}'", movieTitle, username);
             updateUserContextInVectorDB(user);  // ← עדכון FAISS
+            updateRecommendations(user);
             userRepository.save(user);
         }
     }
