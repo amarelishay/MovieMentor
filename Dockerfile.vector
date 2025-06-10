@@ -1,32 +1,34 @@
-# שלב 1: התקנת Java ו־Python יחד
+FROM maven:3.8.7-openjdk-17-slim AS builder
+
+WORKDIR /app
+
+COPY pom.xml .
+COPY src ./src
+
+RUN mvn clean package -DskipTests
+
+# שלב 2: תמונת ריצה עם Java + Python
 FROM python:3.10-slim
 
-# התקנת JDK 17 (OpenJDK)
-RUN apt-get update && \
-    apt-get install -y openjdk-17-jdk && \
-    apt-get clean
+# התקנת JDK כדי שנוכל להריץ את ה-JAR
+RUN apt-get update && apt-get install -y openjdk-17-jre && apt-get clean
 
-# משתנה סביבה להגדרת JAVA_HOME
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH="$JAVA_HOME/bin:$PATH"
 
-# הגדרת תיקיית העבודה
 WORKDIR /app
 
-# העתקת JAR של Spring Boot
-COPY target/moviementor-0.0.1-SNAPSHOT.jar app.jar
+# נעתיק את ה-JAR מהשלב הקודם
+COPY --from=builder /app/target/*.jar app.jar
 
 # העתקת קבצי Python
 COPY app.py .
 COPY vector_service.py .
 
-# התקנת ספריות פייתון
 RUN pip install --no-cache-dir flask sentence-transformers faiss-cpu numpy
 
-# פתיחת פורטים
 EXPOSE 8080
 EXPOSE 5000
 EXPOSE 5005
 
-# הרצת שלושת השירותים במקביל
 CMD ["sh", "-c", "java -jar app.jar & python app.py & python vector_service.py && wait"]
