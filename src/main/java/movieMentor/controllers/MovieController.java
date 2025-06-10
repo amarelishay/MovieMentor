@@ -56,4 +56,10 @@ public class MovieController {
     public ResponseEntity<List<Movie>> getTopRated() {
         return ResponseEntity.ok(tmdbService.getTopRatedMovies());
     }
+
+    @ApiOperation(value = "Get  movies by genre from TMDB")
+    @GetMapping("/by-genre")
+    public ResponseEntity<List<Movie>> getMoviesByGenre(int genreId,int page) {
+        return ResponseEntity.ok(tmdbService.getMoviesByGenre(genreId,page));
+    }
 }

@@ -1,11 +1,13 @@
 package movieMentor.services;
 
 import movieMentor.beans.Actor;
+import movieMentor.beans.Genre;
 import movieMentor.beans.Movie;
 import movieMentor.models.MovieImage;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface TmdbService {
 
@@ -77,6 +79,8 @@ public interface TmdbService {
      * @return a list of Actor objects
      */
     List<Actor> getActorsForMovie(Long movieId);
+     Set<Genre> resolveGenres(List<Integer> genreIds);
 
+    List<Movie> getMoviesByGenre(int genreId,int page);
 
 }
