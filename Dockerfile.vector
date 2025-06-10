@@ -1,4 +1,5 @@
-FROM maven:3.8.7-openjdk-17-slim AS builder
+# שלב 1: בונה את JAR
+FROM maven:3.9.6-eclipse-temurin-17 AS builder
 
 WORKDIR /app
 
@@ -7,10 +8,10 @@ COPY src ./src
 
 RUN mvn clean package -DskipTests
 
-# שלב 2: תמונת ריצה עם Java + Python
+# שלב 2: קונטיינר ריצה עם Java + Python
 FROM python:3.10-slim
 
-# התקנת JDK כדי שנוכל להריץ את ה-JAR
+# התקנת JDK כדי להריץ את ה-JAR
 RUN apt-get update && apt-get install -y openjdk-17-jre && apt-get clean
 
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
@@ -18,13 +19,14 @@ ENV PATH="$JAVA_HOME/bin:$PATH"
 
 WORKDIR /app
 
-# נעתיק את ה-JAR מהשלב הקודם
+# העתקת JAR מהשלב הראשון
 COPY --from=builder /app/target/*.jar app.jar
 
-# העתקת קבצי Python
+# העתקת סקריפטי Python
 COPY app.py .
 COPY vector_service.py .
 
+# התקנת ספריות פייתון
 RUN pip install --no-cache-dir flask sentence-transformers faiss-cpu numpy
 
 EXPOSE 8080
