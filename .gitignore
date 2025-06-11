@@ -1,22 +1,28 @@
-*.class
-*.jar
-*.war
-*.ear
-target/
-build/
+# IDE
 .idea/
 *.iml
-*.ipr
-*.iws
-out/
-.vscode/
+
+# Compiled class files
+*.class
+
+# Maven
+target/
+
+# Logs
+*.log
+
+# OS files
 .DS_Store
 Thumbs.db
-*.log
-.mvn/
-.gradle/
-node_modules/
-*.env
+
+# Local settings
+.env
+*.local
+*.secret
+
+# Spring config
 src/main/resources/application.properties
-*.swp
-*.tmp
+
+# Python cache
+__pycache__/
+*.pyc
