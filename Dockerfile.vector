@@ -20,7 +20,7 @@ ENV PATH="$JAVA_HOME/bin:$PATH"
 WORKDIR /app
 
 # העתקת JAR מהשלב הראשון
-COPY --from=builder /app/target/*.jar app.jar
+COPY target/moviementor-0.0.1-SNAPSHOT.jar app.jar
 
 # העתקת סקריפטי Python
 COPY app.py .
