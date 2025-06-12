@@ -1,8 +1,8 @@
-# vector_service.py
 from flask import Flask, request, jsonify
 import numpy as np
 import faiss
 import uuid
+import os
 
 app = Flask(__name__)
 
@@ -55,6 +55,13 @@ def find_similar_users():
     return jsonify(results)
 
 
-# ---- שלב 4: הפעלה ----
+# ---- שלב 4: בדיקת LIVE ----
+@app.route('/')
+def health_check():
+    return jsonify({"status": "✅ Vector Service is live!"})
+
+
+# ---- שלב 5: הפעלה ----
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5005)
+    port = int(os.environ.get('PORT', 5005))  # Render יספק PORT מהסביבה
+    app.run(host='0.0.0.0', port=port)
