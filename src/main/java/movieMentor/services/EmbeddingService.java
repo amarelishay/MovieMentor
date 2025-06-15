@@ -17,7 +17,7 @@ public class EmbeddingService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private static final String EMBEDDING_URL = "http://localhost:5000/embed";
+    private static final String EMBEDDING_URL = "https://vector-service.onrender.com/embed";
 
     public float[] getEmbedding(String text) {
         try {

@@ -11,7 +11,7 @@ import java.util.*;
 public class UserVectorClientService {
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private static final String BASE_URL = "http://localhost:5005";
+    private static final String BASE_URL = "https://vector-service.onrender.com";
 
     public void storeUserVector(String userId, float[] embedding, Map<String, Object> metadata) {
         Map<String, Object> request = new HashMap<>();
