@@ -25,6 +25,7 @@ public class UserInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        userRepository.deleteAll();
         final String username = "Elishayamar";
         if (userRepository.findByUsername(username).isPresent()) {
             logger.info("User already exists: {}", username);
