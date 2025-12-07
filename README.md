@@ -191,9 +191,6 @@ cd frontend
 npm install
 npm run dev
 
-🎞️ Screenshots / UI (optional)
-
-(Add images later: login page, carousels, recommendations, movie details page, trailer modal)
 
 🧪 Future Improvements
 
@@ -214,8 +211,9 @@ Admin panel for movie ingestion
 Author: Elishay Amar
 📧 amarElishay@gmail.com
 
-💼 LinkedIn: (add your link)
+💼 LinkedIn: www.linkedin.com/in/elishay-amar-8b9b38221
 
 ⭐ If you like this project
 
 Please consider starring the repository to support future updates!
+
